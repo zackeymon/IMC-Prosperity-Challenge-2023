@@ -49,8 +49,7 @@ class Trader:
         result = {}
 
         # Iterate over all the keys (the available products) contained in the order depths
-        for listing in state.listings:
-            product = listing.product
+        for product in state.listings.keys():
 
             # Retrieve the Order Depth containing all the market BUY and SELL orders for PEARLS
             order_depth: OrderDepth = state.order_depths[product]
