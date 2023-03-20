@@ -4,9 +4,11 @@ from collections import defaultdict
 
 
 '''
-# Tutorial round
+# Round 1
 
-In the tutorial round there are two tradable goods: PEARLS and BANANAS. While the value of the PEARLS has been stable throughout the history of the archipelago, the value of BANANAS has been going up and down over time. All algorithms uploaded in the tutorial round will be processed and generate results instantly, so you can experiment with different programs and strategies.
+## Algorithm challenge
+
+The first two tradable products are introduced: PEARLS and BANANAS. While the value of the PEARLS has been stable throughout the history of the archipelago, the value of BANANAS has been going up and down over time. Develop your initial trading strategy and write your first Python program to get off to a good start in this world of trading and market making. Even if the price of a product moves very little or in a very unpredictable way, there might still be clever ways to profit if you both buy and sell.
 
 Position limits for the newly introduced products:
 
@@ -22,7 +24,7 @@ class Trader:
 
     def calculate_fair_value(self, product) -> float:
         MIN_SAMPLE_SIZE = 10
-        MAX_SAMPLE_SIZE = 300
+        MAX_SAMPLE_SIZE = 1000
         prev_trades = self.trade_prices[product]
         if len(prev_trades) < MIN_SAMPLE_SIZE:
             return None
@@ -40,14 +42,15 @@ class Trader:
         Only method required. It takes all buy and sell orders for all symbols as an input,
         and outputs a list of orders to be sent
         """
-        BUY_DISCOUNT = 0.95
-        SELL_PREMIUM = 1.05
+        BUY_DISCOUNT = 1
+        SELL_PREMIUM = 1
 
         # Initialize the method output dict as an empty dict
         result = {}
 
         # Iterate over all the keys (the available products) contained in the order depths
-        for product in state.order_depths.keys():
+        for listing in state.listings:
+            product = listing.product
 
             # Retrieve the Order Depth containing all the market BUY and SELL orders for PEARLS
             order_depth: OrderDepth = state.order_depths[product]
@@ -56,11 +59,11 @@ class Trader:
             orders: list[Order] = []
 
             # Define a fair value.
-            self.trade_prices[product].extend(state.market_trades[product])
+            if product in state.market_trades:
+                self.trade_prices[product].extend(state.market_trades[product])
             fair_value = self.calculate_fair_value(product)
             if fair_value is None:
                 continue
-            print(product, fair_value)
 
             # If statement checks if there are any SELL orders in the PEARLS market
             if len(order_depth.sell_orders) > 0:
