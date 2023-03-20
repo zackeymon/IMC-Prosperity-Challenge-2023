@@ -22,13 +22,14 @@ class Trader:
 
     def calculate_fair_value(self, product) -> float:
         MIN_SAMPLE_SIZE = 10
+        MAX_SAMPLE_SIZE = 300
         prev_trades = self.trade_prices[product]
         if len(prev_trades) < MIN_SAMPLE_SIZE:
             return None
 
         # finding the weighted average
         total_volume, total_quantity = 0, 0
-        for trade in prev_trades:
+        for trade in prev_trades[-MAX_SAMPLE_SIZE:]:
             total_volume += trade.price * trade.quantity
             total_quantity += trade.quantity
 
@@ -39,6 +40,9 @@ class Trader:
         Only method required. It takes all buy and sell orders for all symbols as an input,
         and outputs a list of orders to be sent
         """
+        BUY_DISCOUNT = 0.95
+        SELL_PREMIUM = 1.05
+
         # Initialize the method output dict as an empty dict
         result = {}
 
@@ -67,7 +71,7 @@ class Trader:
                 best_ask_volume = order_depth.sell_orders[best_ask]
 
                 # Check if the lowest ask (sell order) is lower than the above defined fair value
-                if best_ask < fair_value:
+                if best_ask < fair_value * BUY_DISCOUNT:
 
                     # In case the lowest ask is lower than our fair value,
                     # This presents an opportunity for us to buy cheaply
@@ -85,7 +89,7 @@ class Trader:
             if len(order_depth.buy_orders) != 0:
                 best_bid = max(order_depth.buy_orders.keys())
                 best_bid_volume = order_depth.buy_orders[best_bid]
-                if best_bid > fair_value:
+                if best_bid > fair_value * SELL_PREMIUM:
                     print("SELL", str(best_bid_volume) + "x", best_bid)
                     orders.append(
                         Order(product, best_bid, -best_bid_volume))
@@ -93,7 +97,5 @@ class Trader:
             # Add all the above the orders to the result dict
             result[product] = orders
 
-            # Return the dict of orders
-            # These possibly contain buy or sell orders for PEARLS
-            # Depending on the logic above
+        # Return the dict of orders
         return result
