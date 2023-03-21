@@ -23,15 +23,18 @@ class Trader:
         self.trade_prices = defaultdict(list)
 
     def calculate_fair_value(self, product) -> float:
-        MIN_SAMPLE_SIZE = 10
-        MAX_SAMPLE_SIZE = 1000
+        MIN_SAMPLE_SIZE = 5
+        MAX_SAMPLE_SIZE = 100
+
+        # Remove earlier data points
+        self.trade_prices[product] = self.trade_prices[product][-MAX_SAMPLE_SIZE:]
         prev_trades = self.trade_prices[product]
         if len(prev_trades) < MIN_SAMPLE_SIZE:
             return None
 
         # finding the weighted average
         total_volume, total_quantity = 0, 0
-        for trade in prev_trades[-MAX_SAMPLE_SIZE:]:
+        for trade in prev_trades:
             total_volume += trade.price * trade.quantity
             total_quantity += trade.quantity
 
@@ -42,9 +45,6 @@ class Trader:
         Only method required. It takes all buy and sell orders for all symbols as an input,
         and outputs a list of orders to be sent
         """
-        BUY_DISCOUNT = 1
-        SELL_PREMIUM = 1
-
         # Initialize the method output dict as an empty dict
         result = {}
 
@@ -64,7 +64,7 @@ class Trader:
             if fair_value is None:
                 continue
 
-            # If statement checks if there are any SELL orders in the PEARLS market
+            # If there are any SELL orders
             if len(order_depth.sell_orders) > 0:
 
                 # Sort all the available sell orders by their price,
@@ -73,7 +73,7 @@ class Trader:
                 best_ask_volume = order_depth.sell_orders[best_ask]
 
                 # Check if the lowest ask (sell order) is lower than the above defined fair value
-                if best_ask < fair_value * BUY_DISCOUNT:
+                if best_ask < fair_value:
 
                     # In case the lowest ask is lower than our fair value,
                     # This presents an opportunity for us to buy cheaply
@@ -91,7 +91,7 @@ class Trader:
             if len(order_depth.buy_orders) != 0:
                 best_bid = max(order_depth.buy_orders.keys())
                 best_bid_volume = order_depth.buy_orders[best_bid]
-                if best_bid > fair_value * SELL_PREMIUM:
+                if best_bid > fair_value:
                     print("SELL", str(best_bid_volume) + "x", best_bid)
                     orders.append(
                         Order(product, best_bid, -best_bid_volume))
