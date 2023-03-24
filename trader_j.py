@@ -31,9 +31,6 @@ class Trader:
         # Calculate the fair value of the related product
         related_fair_value = self.calculate_fair_value(related_product)
 
-        if related_fair_value is None:
-            return orders
-
         # Compare the fair values of the two products and implement statistical arbitrage
         order_depth: OrderDepth = state.order_depths[product]
         related_order_depth: OrderDepth = state.order_depths[related_product]
@@ -51,6 +48,34 @@ class Trader:
             best_bid_volume = order_depth.buy_orders[best_bid]
             print("SELL", str(best_bid_volume) + "x", best_bid)
             return Order(product, best_bid, -best_bid_volume)
+        
+
+    def process_diving_gear_orders(self, state: TradingState, product: str, fair_value: float, dolphin_sightings: int) -> Order:
+
+        order_depth: OrderDepth = state.order_depths[product]
+
+        # You can adjust the threshold according to the importance of dolphin sightings
+        sighting_threshold = 10
+
+        adjusted_fair_value = fair_value * (1 + dolphin_sightings / sighting_threshold)
+
+        # Buy the product if the adjusted fair value is higher than the best ask
+        if len(order_depth.sell_orders) > 0:
+            best_ask = min(order_depth.sell_orders.keys())
+            best_ask_volume = order_depth.sell_orders[best_ask]
+
+            if best_ask < adjusted_fair_value:
+                print("BUY", str(-best_ask_volume) + "x", best_ask)
+                return Order(product, best_ask, -best_ask_volume)
+
+        # Sell the product if the adjusted fair value is lower than the best bid
+        if len(order_depth.buy_orders) > 0:
+            best_bid = max(order_depth.buy_orders.keys())
+            best_bid_volume = order_depth.buy_orders[best_bid]
+
+            if best_bid > adjusted_fair_value:
+                print("SELL", str(best_bid_volume) + "x", best_bid)
+                return Order(product, best_bid, -best_bid_volume)
             
 
 
@@ -71,7 +96,7 @@ class Trader:
                 continue
 
             # Process orders for PEARLS and BANANAS
-            if product in {"PEARLS", "BANANAS"}:
+            if product in {"PEARLS", "BANANAS", "MAYBERRIES"}:
                 if len(order_depth.sell_orders) > 0:
 
                 # Sort all the available sell orders by their price,
@@ -107,6 +132,12 @@ class Trader:
             if product in {"COCONUTS", "PINA_COLADAS"}:
                 orders.append(
                     self.process_statistical_arbitrage_orders(state, product, fair_value))
+                
+            if product == "DIVING_GEAR":
+                # Get the number of dolphin sightings
+                dolphin_sightings = state.observations['DOLPHIN_SIGHTINGS']
+                orders.append(
+                    self.process_diving_gear_orders(state, product, fair_value, dolphin_sightings))
             
             # Add all the above the orders to the result dict
             result[product] = orders
