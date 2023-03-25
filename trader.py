@@ -43,20 +43,15 @@ class Trader:
         orders = []
 
         if order_depth.sell_orders:
-            best_ask = min(order_depth.sell_orders.keys())
-            best_ask_volume = order_depth.sell_orders[best_ask]
-            if best_ask < fair_value:
-                print("BUY", product,
-                      str(-best_ask_volume) + "x", best_ask)
-                orders.append(
-                    Order(product, best_ask, -best_ask_volume))
+            asks = sorted(order_depth.sell_orders.keys())
+            for ask in asks:
+                if ask < fair_value:
+                    volume = order_depth.sell_orders[ask]
+                    orders.append(Order(product, ask, -volume))
         if order_depth.buy_orders:
-            best_bid = max(order_depth.buy_orders.keys())
-            best_bid_volume = order_depth.buy_orders[best_bid]
-            if best_bid > fair_value:
-                print("SELL", product, str(
-                    best_bid_volume) + "x", best_bid)
-                orders.append(
-                    Order(product, best_bid, -best_bid_volume))
-
+            bids = sorted(order_depth.buy_orders.keys(), reverse=True)
+            for bid in bids:
+                if bid > fair_value:
+                    volume = order_depth.buy_orders[bid]
+                    orders.append(Order(product, bid, -volume))
         return orders
