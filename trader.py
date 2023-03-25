@@ -1,5 +1,6 @@
-from typing import Dict, List
-from datamodel import OrderDepth, TradingState, Order
+import json
+from typing import Dict, List, Any
+from datamodel import Order, ProsperityEncoder, Symbol, TradingState
 from collections import defaultdict
 
 
@@ -15,6 +16,26 @@ Position limits for the newly introduced products:
 - PEARLS: 20
 - BANANAS: 20
 '''
+
+
+class Logger:
+    def __init__(self) -> None:
+        self.logs = ""
+
+    def print(self, *objects: Any, sep: str = " ", end: str = "\n") -> None:
+        self.logs += sep.join(map(str, objects)) + end
+
+    def flush(self, state: TradingState, orders: dict[Symbol, list[Order]]) -> None:
+        print(json.dumps({
+            "state": state,
+            "orders": orders,
+            "logs": self.logs,
+        }, cls=ProsperityEncoder, separators=(",", ":"), sort_keys=True))
+
+        self.logs = ""
+
+
+logger = Logger()
 
 
 class Trader:
@@ -50,6 +71,8 @@ class Trader:
 
         # Iterate over all the keys (the available products) contained in the order depths
         for product in state.listings.keys():
+            if product != "PEARLS":
+                continue
 
             # Retrieve the Order Depth containing all the market BUY and SELL orders for PEARLS
             order_depth: OrderDepth = state.order_depths[product]
@@ -99,5 +122,6 @@ class Trader:
             # Add all the above the orders to the result dict
             result[product] = orders
 
+        logger.flush(state, orders)
         # Return the dict of orders
         return result
