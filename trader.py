@@ -71,6 +71,8 @@ class Trader:
 
         # Iterate over all the keys (the available products) contained in the order depths
         for product in state.listings.keys():
+            if product != "PEARLS":
+                continue
 
             # Retrieve the Order Depth containing all the market BUY and SELL orders for PEARLS
             order_depth: OrderDepth = state.order_depths[product]
