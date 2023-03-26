@@ -5,26 +5,36 @@ from collections import defaultdict
 
 
 class Logger:
-    def __init__(self) -> None:
+    # Set this to true, if u want to create
+    # local logs
+    local: bool
+    # this is used as a buffer for logs
+    # instead of stdout
+    local_logs: dict[int, str] = {}
+
+    def __init__(self, local=False) -> None:
         self.logs = ""
+        self.local = local
 
     def print(self, *objects: Any, sep: str = " ", end: str = "\n") -> None:
         self.logs += sep.join(map(str, objects)) + end
 
     def flush(self, state: TradingState, orders: dict[Symbol, list[Order]]) -> None:
-        print(json.dumps({
+        output = json.dumps({
             "state": state,
             "orders": orders,
             "logs": self.logs,
-        }, cls=ProsperityEncoder, separators=(",", ":"), sort_keys=True))
+        }, cls=ProsperityEncoder, separators=(",", ":"), sort_keys=True)
+        if self.local:
+            self.local_logs[state.timestamp] = output
+        print(output)
 
         self.logs = ""
 
 
-logger = Logger()
-
-
 class Trader:
+
+    logger = Logger(local=True)
 
     def __init__(self) -> None:
         self.trade_prices = defaultdict(list)
@@ -34,7 +44,7 @@ class Trader:
         result = {}
         result["PEARLS"] = self.trade_pearls(state.order_depths["PEARLS"])
 
-        logger.flush(state, result)
+        self.logger.flush(state, result)
         return result
 
     def trade_pearls(self, order_depth: OrderDepth) -> List[Order]:
