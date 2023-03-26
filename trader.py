@@ -43,6 +43,8 @@ class Trader:
 
         result = {}
         result["PEARLS"] = self.trade_pearls(state.order_depths["PEARLS"])
+        result["BERRIES"] = self.trade_berries(
+            state.order_depths["BERRIES"], state.timestamp)
 
         self.logger.flush(state, result)
         return result
@@ -65,3 +67,24 @@ class Trader:
                     volume = order_depth.buy_orders[bid]
                     orders.append(Order(product, bid, -volume))
         return orders
+
+    def trade_berries(self, order_depth: OrderDepth, timestamp: Time) -> List[Order]:
+        product = "BERRIES"
+
+        # # backtesting
+        # buy_ends_at = 30 * 1000
+        # sell_starts_at = 50 * 1000
+
+        # production
+        buy_ends_at = 300 * 1000
+        sell_starts_at = 500 * 1000
+
+        if timestamp < buy_ends_at and order_depth.sell_orders:
+            best_ask = min(order_depth.sell_orders.keys())
+            volume = order_depth.sell_orders[best_ask]
+            return [Order(product, best_ask, -volume)]
+        if timestamp > sell_starts_at and order_depth.buy_orders:
+            best_bid = max(order_depth.buy_orders.keys())
+            volume = order_depth.buy_orders[best_bid]
+            return [Order(product, best_bid, -volume)]
+        return []
