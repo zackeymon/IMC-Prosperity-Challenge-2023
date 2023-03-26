@@ -42,25 +42,29 @@ class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
 
         result = {}
-        result["PEARLS"] = self.trade_pearls(state.order_depths["PEARLS"])
-        result["BERRIES"] = self.trade_berries(
-            state.order_depths["BERRIES"], state.timestamp)
+        result["PEARLS"] = self.trade_pearls(state)
+        result["BERRIES"] = self.trade_berries(state)
 
         self.logger.flush(state, result)
         return result
 
-    def trade_pearls(self, order_depth: OrderDepth) -> List[Order]:
+    def trade_pearls(self, state: TradingState) -> List[Order]:
         product = "PEARLS"
+        limit = 20
         fair_value = 10000
+        order_depth, position = state.order_depths.get(
+            product, None), state.position.get(product, 0)
+        if not order_depth:
+            return []
         orders = []
 
-        if order_depth.sell_orders:
+        if order_depth.sell_orders and position < limit:
             asks = sorted(order_depth.sell_orders.keys())
             for ask in asks:
                 if ask < fair_value:
                     volume = order_depth.sell_orders[ask]
                     orders.append(Order(product, ask, -volume))
-        if order_depth.buy_orders:
+        if order_depth.buy_orders and position > -limit:
             bids = sorted(order_depth.buy_orders.keys(), reverse=True)
             for bid in bids:
                 if bid > fair_value:
@@ -68,8 +72,13 @@ class Trader:
                     orders.append(Order(product, bid, -volume))
         return orders
 
-    def trade_berries(self, order_depth: OrderDepth, timestamp: Time) -> List[Order]:
+    def trade_berries(self, state: TradingState) -> List[Order]:
         product = "BERRIES"
+        limit = 250
+        order_depth, position, timestamp = state.order_depths.get(
+            product, None), state.position.get(product, 0), state.timestamp
+        if not order_depth:
+            return []
 
         # # backtesting
         # buy_ends_at = 30 * 1000
@@ -79,11 +88,11 @@ class Trader:
         buy_ends_at = 300 * 1000
         sell_starts_at = 500 * 1000
 
-        if timestamp < buy_ends_at and order_depth.sell_orders:
+        if timestamp < buy_ends_at and order_depth.sell_orders and position < limit:
             best_ask = min(order_depth.sell_orders.keys())
             volume = order_depth.sell_orders[best_ask]
             return [Order(product, best_ask, -volume)]
-        if timestamp > sell_starts_at and order_depth.buy_orders:
+        if timestamp > sell_starts_at and order_depth.buy_orders and position > -limit:
             best_bid = max(order_depth.buy_orders.keys())
             volume = order_depth.buy_orders[best_bid]
             return [Order(product, best_bid, -volume)]
