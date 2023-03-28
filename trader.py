@@ -44,6 +44,8 @@ class Trader:
         result = {}
         result["PEARLS"] = self.trade_pearls(state)
         result["BERRIES"] = self.trade_berries(state)
+        result["COCONUTS"] = self.trade_coconut_pinacoladas(state, "COCONUTS")
+        result["PINA_COLADAS"] = self.trade_coconut_pinacoladas(state, "PINA_COLADAS")
 
         self.logger.flush(state, result)
         return result
@@ -97,3 +99,33 @@ class Trader:
             volume = order_depth.buy_orders[best_bid]
             return [Order(product, best_bid, -volume)]
         return []
+    
+    def trade_coconut_pinacoladas(self, state: TradingState, product: str) -> List[Order]:
+        orders = []
+
+        # Get the related product
+        related_product = "COCONUTS" if product == "PINA_COLADAS" else "PINA_COLADAS"
+
+        # get the order depth and position of the products
+        c_order_depth: OrderDepth = state.order_depths["COCONUTS"]
+        pc_order_depth: OrderDepth = state.order_depths["PINA_COLADAS"]
+        
+        # Get the best ask and bid prices and volumes for coconut
+        c_best_ask = min(c_order_depth.sell_orders.keys())
+        c_best_ask_volume = c_order_depth.sell_orders[c_best_ask]
+        c_best_bid = max(c_order_depth.buy_orders.keys())
+        c_best_bid_volume = c_order_depth.buy_orders[c_best_bid]
+        # Get the best ask and bid prices and volumes for pina colada
+        pc_best_ask = min(pc_order_depth.sell_orders.keys())
+        pc_best_ask_volume = pc_order_depth.sell_orders[pc_best_ask]
+        pc_best_bid = max(pc_order_depth.buy_orders.keys())
+        pc_best_bid_volume = pc_order_depth.buy_orders[pc_best_bid]
+
+        if pc_best_bid / c_best_ask > 1.876:
+            orders.append(Order(product, c_best_ask, -c_best_ask_volume)) if product == "COCONUTS" \
+                else orders.append(Order(product, pc_best_bid, -pc_best_bid_volume))
+        elif pc_best_ask / c_best_bid < 1.874:
+            orders.append(Order(product, c_best_bid, -c_best_bid_volume)) if product == "COCONUTS" \
+                else orders.append(Order(product, pc_best_ask, -pc_best_ask_volume))
+
+        return orders
