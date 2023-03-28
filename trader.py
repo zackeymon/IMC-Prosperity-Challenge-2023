@@ -40,66 +40,73 @@ class Trader:
         self.trade_prices = defaultdict(list)
 
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
-
         result = {}
+        self._buffer_best_asks_bid_orders(state)
         result["PEARLS"] = self.trade_pearls(state)
         result["BERRIES"] = self.trade_berries(state)
         result["COCONUTS"] = self.trade_coconut_pinacoladas(state, "COCONUTS")
-        result["PINA_COLADAS"] = self.trade_coconut_pinacoladas(state, "PINA_COLADAS")
+        result["PINA_COLADAS"] = self.trade_coconut_pinacoladas(
+            state, "PINA_COLADAS")
+        result["BAGUETTE"], result["DIP"], result["UKULELE"], result["PICNIC_BASKET"] = self.trade_basket(
+            state)
 
         self.logger.flush(state, result)
         return result
 
+    def _buffer_best_asks_bid_orders(self, state: TradingState):
+        limits = {
+            'PEARLS': 20,
+            'BANANAS': 20,
+            'COCONUTS': 600,
+            'PINA_COLADAS': 300,
+            'DIVING_GEAR': 50,
+            'BERRIES': 250,
+            'BAGUETTE': 150,
+            'DIP': 300,
+            'UKULELE': 70,
+            'PICNIC_BASKET': 70,
+        }
+        self.best_ask_orders: Dict[Symbol, Order] = {}
+        self.best_bid_orders: Dict[Symbol, Order] = {}
+        for product, order_depth in state.order_depths.items():
+            if product == "DOLPHIN_SIGHTINGS":
+                continue
+            pos = state.position.get(product, 0)
+            limit = limits[product]
+            if order_depth.sell_orders:
+                best_ask = min(order_depth.sell_orders.keys())
+                volume = max(order_depth.sell_orders[best_ask], pos-limit)
+                self.best_ask_orders[product] = Order(
+                    product, best_ask, -volume)
+            if order_depth.buy_orders:
+                best_bid = max(order_depth.buy_orders.keys())
+                volume = min(order_depth.buy_orders[best_bid], limit+pos)
+                self.best_bid_orders[product] = Order(
+                    product, best_bid, -volume)
+
     def trade_pearls(self, state: TradingState) -> List[Order]:
         product = "PEARLS"
-        limit = 20
         fair_value = 10000
-        order_depth, position = state.order_depths.get(
-            product, None), state.position.get(product, 0)
-        if not order_depth:
-            return []
-        orders = []
 
-        if order_depth.sell_orders and position < limit:
-            asks = sorted(order_depth.sell_orders.keys())
-            for ask in asks:
-                if ask < fair_value:
-                    volume = order_depth.sell_orders[ask]
-                    orders.append(Order(product, ask, -volume))
-        if order_depth.buy_orders and position > -limit:
-            bids = sorted(order_depth.buy_orders.keys(), reverse=True)
-            for bid in bids:
-                if bid > fair_value:
-                    volume = order_depth.buy_orders[bid]
-                    orders.append(Order(product, bid, -volume))
-        return orders
+        if self.best_ask_orders[product].price < fair_value:
+            return [self.best_ask_orders[product]]
+        if self.best_bid_orders[product].price > fair_value:
+            return [self.best_bid_orders[product]]
+        return []
 
     def trade_berries(self, state: TradingState) -> List[Order]:
         product = "BERRIES"
-        limit = 250
-        order_depth, position, timestamp = state.order_depths.get(
-            product, None), state.position.get(product, 0), state.timestamp
-        if not order_depth:
-            return []
+        timestamp = state.timestamp
 
-        # # backtesting
-        # buy_ends_at = 30 * 1000
-        # sell_starts_at = 50 * 1000
-
-        # production
         buy_ends_at = 300 * 1000
         sell_starts_at = 500 * 1000
 
-        if timestamp < buy_ends_at and order_depth.sell_orders and position < limit:
-            best_ask = min(order_depth.sell_orders.keys())
-            volume = order_depth.sell_orders[best_ask]
-            return [Order(product, best_ask, -volume)]
-        if timestamp > sell_starts_at and order_depth.buy_orders and position > -limit:
-            best_bid = max(order_depth.buy_orders.keys())
-            volume = order_depth.buy_orders[best_bid]
-            return [Order(product, best_bid, -volume)]
+        if timestamp < buy_ends_at:
+            return [self.best_ask_orders[product]]
+        if timestamp > sell_starts_at:
+            return [self.best_bid_orders[product]]
         return []
-    
+
     def trade_coconut_pinacoladas(self, state: TradingState, product: str) -> List[Order]:
         orders = []
 
@@ -109,7 +116,7 @@ class Trader:
         # get the order depth and position of the products
         c_order_depth: OrderDepth = state.order_depths["COCONUTS"]
         pc_order_depth: OrderDepth = state.order_depths["PINA_COLADAS"]
-        
+
         # Get the best ask and bid prices and volumes for coconut
         c_best_ask = min(c_order_depth.sell_orders.keys())
         c_best_ask_volume = c_order_depth.sell_orders[c_best_ask]
@@ -129,3 +136,25 @@ class Trader:
                 else orders.append(Order(product, pc_best_ask, -pc_best_ask_volume))
 
         return orders
+
+    def trade_basket(self, state: TradingState) -> List[List[Order]]:
+        components = {"BAGUETTE": 2, "DIP": 4, "UKULELE": 1}
+        combined_ask = 0
+        combined_bid = 0
+        for product, quantity in components.items():
+            if product not in self.best_ask_orders:
+                combined_ask = 99999999
+            else:
+                combined_ask += self.best_ask_orders[product].price * quantity
+
+            if product not in self.best_bid_orders:
+                combined_bid = -99999999
+            else:
+                combined_bid += self.best_bid_orders[product].price * quantity
+
+        if combined_ask < self.best_bid_orders["PICNIC_BASKET"].price:
+            return [self.best_ask_orders["BAGUETTE"]], [self.best_ask_orders["DIP"]], [self.best_ask_orders["UKULELE"]], [self.best_bid_orders["PICNIC_BASKET"]]
+        if combined_bid > self.best_ask_orders["PICNIC_BASKET"].price:
+            return [self.best_bid_orders["BAGUETTE"]], [self.best_bid_orders["DIP"]], [self.best_bid_orders["UKULELE"]], [self.best_ask_orders["PICNIC_BASKET"]]
+
+        return [], [], [], []
